@@ -1,5 +1,6 @@
-[![License](https://img.shields.io/aur/license/yaourt.svg)](https://www.gnu.org/licenses/quick-guide-gplv3.en.html)
 [![GoDoc](https://godoc.org/github.com/RadicalApp/goquery?status.png)](https://godoc.org/github.com/RadicalApp/libsignal-protocol-go)
+[![Go Report Card](https://goreportcard.com/badge/github.com/RadicalApp/libsignal-protocol-go)](https://goreportcard.com/report/github.com/RadicalApp/libsignal-protocol-go)
+[![License](https://img.shields.io/aur/license/yaourt.svg)](https://www.gnu.org/licenses/quick-guide-gplv3.en.html)
 [![Twitter](https://img.shields.io/badge/twitter-@DustMessaging-blue.svg?style=flat)](https://twitter.com/dustmessaging)
 
 libsignal-protocol-go
