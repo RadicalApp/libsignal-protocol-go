@@ -1,13 +1,34 @@
-Libsignal-protocol-go
-===================
+[![License](https://img.shields.io/aur/license/yaourt.svg)](https://www.gnu.org/licenses/quick-guide-gplv3.en.html)
+[![GoDoc](https://godoc.org/github.com/RadicalApp/goquery?status.png)](https://godoc.org/github.com/RadicalApp/libsignal-protocol-go)
+[![Twitter](https://img.shields.io/badge/twitter-@DustMessaging-blue.svg?style=flat)](https://twitter.com/dustmessaging)
+
+libsignal-protocol-go
+=====================
 
 Libsignal-protocol-go is a Go implementation of the Signal Client Protocol.
 
-For more information on how the Signal Protocol works:
 
-* [Double Ratchet](https://whispersystems.org/docs/specifications/doubleratchet/)
-* [X3DH Key Agreement](https://whispersystems.org/docs/specifications/x3dh/)
-* [XEdDSA Signature Schemes](https://whispersystems.org/docs/specifications/xeddsa/)
+Documentation
+-------------
+
+- [API Reference](https://godoc.org/github.com/RadicalApp/libsignal-protocol-go)
+
+For more information on how the Signal Protocol works:    
+- [Double Ratchet](https://whispersystems.org/docs/specifications/doubleratchet/)
+- [X3DH Key Agreement](https://whispersystems.org/docs/specifications/x3dh/)
+- [XEdDSA Signature Schemes](https://whispersystems.org/docs/specifications/xeddsa/)
+
+
+Installation
+------------
+
+Install the Signal library using the "go get" command:
+
+    go get github.com/RadicalApp/libsignal-protocol-go/...
+
+
+Usage
+-----
 
 ## Install time
 At install time, a signal client needs to generate its identity keys, registration id, and prekeys.
