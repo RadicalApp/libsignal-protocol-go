@@ -22,3 +22,16 @@ _testmain.go
 *.exe
 *.test
 *.prof
+
+# IntelliJ
+.idea
+*.iws
+*.iml
+
+## Plugin-specific files:
+
+# IntelliJ
+/out/
+
+# mpeltonen/sbt-idea plugin
+.idea_modules/
