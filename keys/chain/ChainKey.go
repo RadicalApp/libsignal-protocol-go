@@ -1,3 +1,4 @@
+// Package chain provides chain keys used in double ratchet sessions.
 package chain
 
 import (

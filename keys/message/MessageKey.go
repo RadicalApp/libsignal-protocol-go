@@ -1,3 +1,5 @@
+// Package message provides a structure for message keys, which are symmetric
+// keys used for the encryption/decryption of Signal messages.
 package message
 
 // DerivedSecretsSize is the size of the derived secrets for message keys.

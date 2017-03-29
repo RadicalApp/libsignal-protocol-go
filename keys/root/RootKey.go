@@ -1,3 +1,5 @@
+// Package root provides root keys which are used to derive new chain and
+// root keys in a ratcheting session.
 package root
 
 import (

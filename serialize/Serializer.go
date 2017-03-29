@@ -1,3 +1,5 @@
+// Package serialize provides a serialization structure to serialize and
+// deserialize Signal objects into storeable and transportable bytes.
 package serialize
 
 import (

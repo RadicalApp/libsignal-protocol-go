@@ -1,3 +1,5 @@
+// Package kdf provides a key derivation function to calculate key output
+// and negotiate shared secrets for curve X25519 keys.
 package kdf
 
 import (

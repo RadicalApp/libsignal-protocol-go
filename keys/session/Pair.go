@@ -1,3 +1,5 @@
+// Package session provides a simple structure for session keys, which is
+// a pair of root and chain keys for a session.
 package session
 
 import (

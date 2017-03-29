@@ -1,3 +1,4 @@
+// Package logger provides optional debug logging of the Signal library.
 package logger
 
 import (

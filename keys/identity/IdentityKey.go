@@ -1,3 +1,5 @@
+// Package identity provides identity keys used for verifying the identity
+// of a signal user.
 package identity
 
 import (
