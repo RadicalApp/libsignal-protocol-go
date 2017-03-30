@@ -41,7 +41,7 @@ func TestGroupSessionBuilder(t *testing.T) {
 		bob.identityKeyPair.PublicKey(),
 	)
 
-	// Process Bob's retrived prekey to establish a session.
+	// Process Bob's retrieved prekey to establish a session.
 	logger.Debug("Building sender's (Alice) session...")
 	err := alice.sessionBuilder.ProcessBundle(retrivedPreKey)
 	if err != nil {
