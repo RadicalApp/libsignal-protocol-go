@@ -26,7 +26,7 @@ func TestSessionBuilder(t *testing.T) {
 	// Create a PreKeyBundle from Bob's prekey records and other
 	// data.
 	logger.Debug("Fetching Bob's prekey with ID: ", bob.preKeys[0].ID())
-	retrivedPreKey := prekey.NewBundle(
+	retrievedPreKey := prekey.NewBundle(
 		bob.registrationID,
 		bob.deviceID,
 		bob.preKeys[0].ID(),
@@ -37,9 +37,9 @@ func TestSessionBuilder(t *testing.T) {
 		bob.identityKeyPair.PublicKey(),
 	)
 
-	// Process Bob's retrived prekey to establish a session.
+	// Process Bob's retrieved prekey to establish a session.
 	logger.Debug("Building sender's (Alice) session...")
-	err := alice.sessionBuilder.ProcessBundle(retrivedPreKey)
+	err := alice.sessionBuilder.ProcessBundle(retrievedPreKey)
 	if err != nil {
 		logger.Error("Unable to process retrieved prekey bundle")
 		t.FailNow()
@@ -136,7 +136,7 @@ func TestSessionRoundtrip(t *testing.T) {
 	// Create a PreKeyBundle from Bob's prekey records and other
 	// data.
 	logger.Debug("Fetching Bob's prekey with ID: ", bob.preKeys[0].ID())
-	retrivedPreKey := prekey.NewBundle(
+	retrievedPreKey := prekey.NewBundle(
 		bob.registrationID,
 		bob.deviceID,
 		bob.preKeys[0].ID(),
@@ -147,9 +147,9 @@ func TestSessionRoundtrip(t *testing.T) {
 		bob.identityKeyPair.PublicKey(),
 	)
 
-	// Process Bob's retrived prekey to establish a session.
+	// Process Bob's retrieved prekey to establish a session.
 	logger.Debug("Building sender's (Alice) session...")
-	err := alice.sessionBuilder.ProcessBundle(retrivedPreKey)
+	err := alice.sessionBuilder.ProcessBundle(retrievedPreKey)
 	if err != nil {
 		logger.Error("Unable to process retrieved prekey bundle")
 		t.FailNow()
@@ -216,7 +216,7 @@ func TestSessionOutOfOrder(t *testing.T) {
 	// Create a PreKeyBundle from Bob's prekey records and other
 	// data.
 	logger.Debug("Fetching Bob's prekey with ID: ", bob.preKeys[0].ID())
-	retrivedPreKey := prekey.NewBundle(
+	retrievedPreKey := prekey.NewBundle(
 		bob.registrationID,
 		bob.deviceID,
 		bob.preKeys[0].ID(),
@@ -227,9 +227,9 @@ func TestSessionOutOfOrder(t *testing.T) {
 		bob.identityKeyPair.PublicKey(),
 	)
 
-	// Process Bob's retrived prekey to establish a session.
+	// Process Bob's retrieved prekey to establish a session.
 	logger.Debug("Building sender's (Alice) session...")
-	err := alice.sessionBuilder.ProcessBundle(retrivedPreKey)
+	err := alice.sessionBuilder.ProcessBundle(retrievedPreKey)
 	if err != nil {
 		logger.Error("Unable to process retrieved prekey bundle")
 		t.FailNow()
