@@ -2,9 +2,11 @@ package tests
 
 import (
 	"github.com/RadicalApp/libsignal-protocol-go/groups"
+	"github.com/RadicalApp/libsignal-protocol-go/keys/prekey"
 	"github.com/RadicalApp/libsignal-protocol-go/logger"
 	"github.com/RadicalApp/libsignal-protocol-go/protocol"
 	"github.com/RadicalApp/libsignal-protocol-go/serialize"
+	"github.com/RadicalApp/libsignal-protocol-go/session"
 	"testing"
 )
 
@@ -17,65 +19,152 @@ func TestGroupSessionBuilder(t *testing.T) {
 	// Create our users who will talk to each other.
 	alice := newUser("Alice", 1, serializer)
 	bob := newUser("Bob", 2, serializer)
-	charlie := newUser("Charlie", 3, serializer)
 	groupName := "123"
 
-	// ***** Alice Send *****
+	// ***** Build one-to-one session with group members *****
+
+	// Create a session builder to create a session between Alice -> Bob.
+	alice.buildSession(bob.address, serializer)
+	bob.buildSession(alice.address, serializer)
+
+	// Create a PreKeyBundle from Bob's prekey records and other
+	// data.
+	logger.Debug("Fetching Bob's prekey with ID: ", bob.preKeys[0].ID())
+	retrivedPreKey := prekey.NewBundle(
+		bob.registrationID,
+		bob.deviceID,
+		bob.preKeys[0].ID(),
+		bob.signedPreKey.ID(),
+		bob.preKeys[0].KeyPair().PublicKey(),
+		bob.signedPreKey.KeyPair().PublicKey(),
+		bob.signedPreKey.Signature(),
+		bob.identityKeyPair.PublicKey(),
+	)
+
+	// Process Bob's retrived prekey to establish a session.
+	logger.Debug("Building sender's (Alice) session...")
+	err := alice.sessionBuilder.ProcessBundle(retrivedPreKey)
+	if err != nil {
+		logger.Error("Unable to process retrieved prekey bundle")
+		t.FailNow()
+	}
 
 	// Create a session builder to create a session between Alice -> Bob.
 	aliceSenderKeyName := protocol.NewSenderKeyName(groupName, alice.address)
-	skdm, err := alice.groupBuilder.Create(aliceSenderKeyName)
+	aliceSkdm, err := alice.groupBuilder.Create(aliceSenderKeyName)
 	if err != nil {
 		logger.Error("Unable to create group session")
 		t.FailNow()
 	}
 	aliceSendingCipher := groups.NewGroupCipher(alice.groupBuilder, aliceSenderKeyName, alice.senderKeyStore)
 
+	// Create a one-to-one session cipher to encrypt the skdm to Bob.
+	aliceBobSessionCipher := session.NewCipher(alice.sessionBuilder, bob.address)
+	encryptedSkdm, err := aliceBobSessionCipher.Encrypt(aliceSkdm.Serialize())
+	if err != nil {
+		logger.Error("Unable to encrypt message: ", err)
+		t.FailNow()
+	}
+
+	// ***** Bob receive senderkey distribution message from Alice *****
+
+	// Emulate receiving the message as JSON over the network.
+	logger.Debug("Building message from bytes on Bob's end.")
+	receivedMessage, err := protocol.NewPreKeySignalMessageFromBytes(encryptedSkdm.Serialize(), serializer.PreKeySignalMessage, serializer.SignalMessage)
+	if err != nil {
+		logger.Error("Unable to emulate receiving message as JSON: ", err)
+		t.FailNow()
+	}
+
+	// Create a session builder
+	logger.Debug("Building receiver's (Bob) session...")
+	unsignedPreKeyID, err := bob.sessionBuilder.Process(receivedMessage)
+	if err != nil {
+		logger.Error("Unable to process prekeysignal message: ", err)
+		t.FailNow()
+	}
+	logger.Debug("Got PreKeyID: ", unsignedPreKeyID)
+
+	// Try and decrypt the senderkey distribution message
+	bobAliceSessionCipher := session.NewCipher(bob.sessionBuilder, alice.address)
+	msg, err := bobAliceSessionCipher.Decrypt(receivedMessage.WhisperMessage())
+	if err != nil {
+		logger.Error("Unable to decrypt message: ", err)
+		t.FailNow()
+	}
+	bobReceivedSkdm, err := protocol.NewSenderKeyDistributionMessageFromBytes(msg, serializer.SenderKeyDistributionMessage)
+	if err != nil {
+		logger.Error("Unable to create senderkey distribution message from bytes: ", err)
+		t.FailNow()
+	}
+
+	// ***** Alice Send *****
+
 	// Encrypt some messages to send with Alice's group cipher
 	logger.Debug("Alice sending messages to Bob...")
 	alicePlainMessages, aliceEncryptedMessages := sendGroupMessages(1000, aliceSendingCipher, serializer, t)
-	logger.Debug("Alice sending messages to Charlie...")
-	alicePlainMessages2, aliceEncryptedMessages2 := sendGroupMessages(1000, aliceSendingCipher, serializer, t)
 
 	// Build bob's side of the session.
-	bob.groupBuilder.Process(aliceSenderKeyName, skdm)
+	bob.groupBuilder.Process(aliceSenderKeyName, bobReceivedSkdm)
 	receivingBobCipher := groups.NewGroupCipher(bob.groupBuilder, aliceSenderKeyName, bob.senderKeyStore)
-	charlie.groupBuilder.Process(aliceSenderKeyName, skdm)
-	receivingCharlieCipher := groups.NewGroupCipher(charlie.groupBuilder, aliceSenderKeyName, charlie.senderKeyStore)
 
 	// Decrypt the messages sent by alice.
 	logger.Debug("Bob receiving messages from Alice...")
 	receiveGroupMessages(aliceEncryptedMessages, alicePlainMessages, receivingBobCipher, t)
-	logger.Debug("Charlie receiving messages from Alice...")
-	receiveGroupMessages(aliceEncryptedMessages2, alicePlainMessages2, receivingCharlieCipher, t)
 
-	// ***** Bob Send *****
+	// ***** Bob send senderkey distribution message to Alice *****
 
-	// Create a session builder for sending messages between Bob -> Alice.
+	// Create a group builder with Bob's address.
 	bobSenderKeyName := protocol.NewSenderKeyName(groupName, bob.address)
-	skdm, err = bob.groupBuilder.Create(bobSenderKeyName)
+	bobSkdm, err := bob.groupBuilder.Create(bobSenderKeyName)
 	if err != nil {
 		logger.Error("Unable to create group session")
 		t.FailNow()
 	}
 	bobSendingCipher := groups.NewGroupCipher(bob.groupBuilder, bobSenderKeyName, bob.senderKeyStore)
 
+	// Encrypt the senderKey distribution message to send to Alice.
+	bobEncryptedSkdm, err := bobAliceSessionCipher.Encrypt(bobSkdm.Serialize())
+	if err != nil {
+		logger.Error("Unable to encrypt message: ", err)
+		t.FailNow()
+	}
+
+	// Emulate receiving the message as JSON over the network.
+	logger.Debug("Building message from bytes on Alice's end.")
+	aliceReceivedMessage, err := protocol.NewSignalMessageFromBytes(bobEncryptedSkdm.Serialize(), serializer.SignalMessage)
+	if err != nil {
+		logger.Error("Unable to emulate receiving message as JSON: ", err)
+		t.FailNow()
+	}
+
+	// ***** Alice receives senderkey distribution message from Bob *****
+
+	// Decrypt the received message.
+	msg, err = aliceBobSessionCipher.Decrypt(aliceReceivedMessage)
+	if err != nil {
+		logger.Error("Unable to decrypt message: ", err)
+		t.FailNow()
+	}
+	aliceReceivedSkdm, err := protocol.NewSenderKeyDistributionMessageFromBytes(msg, serializer.SenderKeyDistributionMessage)
+	if err != nil {
+		logger.Error("Unable to create senderkey distribution message from bytes: ", err)
+		t.FailNow()
+	}
+
+	// ***** Bob Send *****
+
 	// Encrypt some messages to send with Bob's group cipher
 	logger.Debug("Bob sending messages to Alice...")
 	bobPlainMessages, bobEncryptedMessages := sendGroupMessages(1000, bobSendingCipher, serializer, t)
-	bobPlainMessages2, bobEncryptedMessages2 := sendGroupMessages(1000, bobSendingCipher, serializer, t)
 
 	// Build alice's side of the session.
-	alice.groupBuilder.Process(bobSenderKeyName, skdm)
+	alice.groupBuilder.Process(bobSenderKeyName, aliceReceivedSkdm)
 	receivingAliceCipher := groups.NewGroupCipher(alice.groupBuilder, bobSenderKeyName, alice.senderKeyStore)
-	charlie.groupBuilder.Process(aliceSenderKeyName, skdm)
-	receivingCharlieCipher = groups.NewGroupCipher(charlie.groupBuilder, aliceSenderKeyName, charlie.senderKeyStore)
 
 	// Decrypt the messages sent by bob.
 	logger.Debug("Alice receiving messages from Bob...")
 	receiveGroupMessages(bobEncryptedMessages, bobPlainMessages, receivingAliceCipher, t)
-	logger.Debug("Charlie receiving messages from Bob...")
-	receiveGroupMessages(bobEncryptedMessages2, bobPlainMessages2, receivingCharlieCipher, t)
 }
 
 // sendGroupMessages will generate and return a list of plaintext and encrypted messages.
