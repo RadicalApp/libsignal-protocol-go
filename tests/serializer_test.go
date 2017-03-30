@@ -37,7 +37,7 @@ func TestSerializing(t *testing.T) {
 		bob.identityKeyPair.PublicKey(),
 	)
 
-	// Process Bob's retrived prekey to establish a session.
+	// Process Bob's retrieved prekey to establish a session.
 	alice.sessionBuilder.ProcessBundle(retrivedPreKey)
 
 	// Create a session cipher to encrypt messages to Bob.
