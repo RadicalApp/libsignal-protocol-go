@@ -10,6 +10,7 @@ import (
 	"github.com/RadicalApp/libsignal-protocol-go/protocol"
 	"github.com/RadicalApp/libsignal-protocol-go/state/record"
 	"github.com/RadicalApp/libsignal-protocol-go/state/store"
+	"github.com/RadicalApp/libsignal-protocol-go/util/bytehelper"
 	"strconv"
 )
 
@@ -33,7 +34,7 @@ func NewCipher(builder *Builder, remoteAddress *protocol.SignalAddress) *Cipher 
 func NewCipherFromSession(session *record.Session, remoteAddress *protocol.SignalAddress,
 	sessionStore store.Session, preKeyStore store.PreKey,
 	preKeyMessageSerializer protocol.PreKeySignalMessageSerializer,
-	signalMessageSerializer protocol.SignalMessageSerializer) *Cipher{
+	signalMessageSerializer protocol.SignalMessageSerializer) *Cipher {
 	cipher := &Cipher{
 		sessionStore:            sessionStore,
 		preKeyMessageSerializer: preKeyMessageSerializer,
@@ -123,31 +124,52 @@ func (d *Cipher) Encrypt(plaintext []byte) (protocol.CiphertextMessage, error) {
 // Decrypt decrypts the given message using an existing session that
 // is stored in the session store.
 func (d *Cipher) Decrypt(ciphertextMessage *protocol.SignalMessage) ([]byte, error) {
+	plaintext, _, err := d.DecryptAndGetKey(ciphertextMessage)
+
+	return plaintext, err
+}
+
+// DecryptAndGetKey decrypts the given message using an existing session that
+// is stored in the session store and returns the message keys used for encryption.
+func (d *Cipher) DecryptAndGetKey(ciphertextMessage *protocol.SignalMessage) ([]byte, *message.Keys, error) {
 	if !d.sessionStore.ContainsSession(d.remoteAddress) {
-		return nil, errors.New("No session for: " + d.remoteAddress.String())
+		return nil, nil, errors.New("No session for: " + d.remoteAddress.String())
 	}
 
 	// Load the session record from our session store and decrypt the message.
 	sessionRecord := d.sessionStore.LoadSession(d.remoteAddress)
-	plaintext, err := d.DecryptWithRecord(sessionRecord, ciphertextMessage)
+	plaintext, messageKeys, err := d.DecryptWithRecord(sessionRecord, ciphertextMessage)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// Store the session record in our session store.
 	d.sessionStore.StoreSession(d.remoteAddress, sessionRecord)
 
+	return plaintext, messageKeys, nil
+}
+
+// DecryptWithKey will decrypt the given message using the given symmetric key. This
+// can be used when decrypting messages at a later time if the message key was saved.
+func (d *Cipher) DecryptWithKey(ciphertextMessage *protocol.SignalMessage, key *message.Keys) ([]byte, error) {
+	logger.Debug("Decrypting ciphertext body: ", ciphertextMessage.Body())
+	plaintext, err := decrypt(key, ciphertextMessage.Body())
+	if err != nil {
+		logger.Error("Unable to get plain text from ciphertext: ", err)
+		return nil, err
+	}
+
 	return plaintext, nil
 }
 
 // DecryptWithRecord decrypts the given message using the given session record.
-func (d *Cipher) DecryptWithRecord(sessionRecord *record.Session, ciphertext *protocol.SignalMessage) ([]byte, error) {
+func (d *Cipher) DecryptWithRecord(sessionRecord *record.Session, ciphertext *protocol.SignalMessage) ([]byte, *message.Keys, error) {
 	logger.Debug("Decrypting ciphertext with record: ", sessionRecord)
 	previousStates := sessionRecord.PreviousSessionStates()
 	sessionState := sessionRecord.SessionState()
 
 	// Try and decrypt the message with the current session state.
-	plaintext, err := d.DecryptWithState(sessionState, ciphertext)
+	plaintext, messageKeys, err := d.DecryptWithState(sessionState, ciphertext)
 
 	// If we received an error using the current session state, loop
 	// through all previous states.
@@ -155,7 +177,7 @@ func (d *Cipher) DecryptWithRecord(sessionRecord *record.Session, ciphertext *pr
 		logger.Warning(err)
 		for i, state := range previousStates {
 			// Try decrypting the message with previous states
-			plaintext, err = d.DecryptWithState(state, ciphertext)
+			plaintext, messageKeys, err = d.DecryptWithState(state, ciphertext)
 			if err != nil {
 				continue
 			}
@@ -164,31 +186,31 @@ func (d *Cipher) DecryptWithRecord(sessionRecord *record.Session, ciphertext *pr
 			previousStates = append(previousStates[:i], previousStates[i+1:]...)
 			sessionRecord.PromoteState(state)
 
-			return plaintext, nil
+			return plaintext, messageKeys, nil
 		}
 
-		return nil, errors.New("No valid sessions.")
+		return nil, nil, errors.New("No valid sessions.")
 	}
 
 	// If decryption was successful, set the session state and return the plain text.
 	sessionRecord.SetState(sessionState)
 
-	return plaintext, nil
+	return plaintext, messageKeys, nil
 }
 
 // DecryptWithState decrypts the given message with the given session state.
-func (d *Cipher) DecryptWithState(sessionState *record.State, ciphertextMessage *protocol.SignalMessage) ([]byte, error) {
+func (d *Cipher) DecryptWithState(sessionState *record.State, ciphertextMessage *protocol.SignalMessage) ([]byte, *message.Keys, error) {
 	logger.Debug("Decrypting ciphertext with session state: ", sessionState)
 	if !sessionState.HasSenderChain() {
 		err := "Uninitialized session!"
 		logger.Error("Unable to decrypt message with state: ", err)
-		return nil, errors.New(err)
+		return nil, nil, errors.New(err)
 	}
 
 	if ciphertextMessage.MessageVersion() != sessionState.Version() {
 		err := "Wrong message version!"
 		logger.Error("Unable to decrypt message with state: ", err)
-		return nil, errors.New(err)
+		return nil, nil, errors.New(err)
 	}
 
 	messageVersion := ciphertextMessage.MessageVersion()
@@ -197,31 +219,29 @@ func (d *Cipher) DecryptWithState(sessionState *record.State, ciphertextMessage 
 	chainKey, chainCreateErr := getOrCreateChainKey(sessionState, theirEphemeral)
 	if chainCreateErr != nil {
 		logger.Error("Unable to get or create chain key: ", chainCreateErr)
-		return nil, chainCreateErr
+		return nil, nil, chainCreateErr
 	}
 
 	messageKeys, keysCreateErr := getOrCreateMessageKeys(sessionState, theirEphemeral, chainKey, counter)
 	if keysCreateErr != nil {
 		logger.Error("Unable to get or create message keys: ", keysCreateErr)
-		return nil, keysCreateErr
+		return nil, nil, keysCreateErr
 	}
 
 	err := ciphertextMessage.VerifyMac(messageVersion, sessionState.RemoteIdentityKey(), sessionState.LocalIdentityKey(), messageKeys.MacKey())
 	if err != nil {
 		logger.Error("Unable to verify ciphertext mac: ", err)
-		return nil, err
+		return nil, nil, err
 	}
 
-	logger.Debug("Decrypting ciphertext body: ", ciphertextMessage.Body())
-	plaintext, pErr := decrypt(messageKeys, ciphertextMessage.Body())
-	if pErr != nil {
-		logger.Error("Unable to get plain text from ciphertext: ", pErr)
-		return nil, pErr
+	plaintext, err := d.DecryptWithKey(ciphertextMessage, messageKeys)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	sessionState.ClearUnackPreKeyMessage()
 
-	return plaintext, nil
+	return plaintext, messageKeys, nil
 }
 
 func getOrCreateMessageKeys(sessionState *record.State, theirEphemeral ecc.ECPublicKeyable,
@@ -296,7 +316,7 @@ func getOrCreateChainKey(sessionState *record.State, theirEphemeral ecc.ECPublic
 // the plaintext bytes.
 func decrypt(keys *message.Keys, body []byte) ([]byte, error) {
 	logger.Debug("Using cipherKey: ", keys.CipherKey())
-	return cipher.Decrypt(keys.Iv(), keys.CipherKey(), body)
+	return cipher.Decrypt(keys.Iv(), keys.CipherKey(), bytehelper.CopySlice(body))
 }
 
 // encrypt will use the given cipher, message keys, and plaintext bytes

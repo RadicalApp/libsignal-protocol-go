@@ -87,3 +87,11 @@ func Bytes5ToInt64(bytes []byte, offset int) int64 {
 
 	return value
 }
+
+// CopySlice returns a copy of the given bytes.
+func CopySlice(bytes []byte) []byte {
+	cp := make([]byte, len(bytes))
+	copy(cp, bytes)
+
+	return cp
+}
