@@ -70,7 +70,7 @@ func NewChainFromStructure(structure *ChainStructure) (*Chain, error) {
 type ChainStructure struct {
 	SenderRatchetKeyPublic  []byte
 	SenderRatchetKeyPrivate []byte
-	ChainKey                chain.KeyStructure
+	ChainKey                *chain.KeyStructure
 	MessageKeys             []message.KeysStructure
 }
 

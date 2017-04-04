@@ -25,7 +25,7 @@ func NewPendingPreKeyFromStruct(preKey *PendingPreKeyStructure) (*PendingPreKey,
 	}
 
 	pendingPreKey := NewPendingPreKey(
-		&preKey.PreKeyID,
+		preKey.PreKeyID,
 		preKey.SignedPreKeyID,
 		baseKey,
 	)
@@ -36,7 +36,7 @@ func NewPendingPreKeyFromStruct(preKey *PendingPreKeyStructure) (*PendingPreKey,
 // PendingPreKeyStructure is a serializeable structure for pending
 // prekeys.
 type PendingPreKeyStructure struct {
-	PreKeyID       optional.Uint32
+	PreKeyID       *optional.Uint32
 	SignedPreKeyID uint32
 	BaseKey        []byte
 }
@@ -52,7 +52,7 @@ type PendingPreKey struct {
 // structure will return a serializeable structure of the pending prekey.
 func (p *PendingPreKey) structure() *PendingPreKeyStructure {
 	return &PendingPreKeyStructure{
-		PreKeyID:       *p.preKeyID,
+		PreKeyID:       p.preKeyID,
 		SignedPreKeyID: p.signedPreKeyID,
 		BaseKey:        p.baseKey.Serialize(),
 	}

@@ -23,7 +23,7 @@ func NewKey(kdf kdf.HKDF, key []byte, index uint32) *Key {
 }
 
 // NewKeyFromStruct will return a chain key built from the given structure.
-func NewKeyFromStruct(structure KeyStructure, kdf kdf.HKDF) *Key {
+func NewKeyFromStruct(structure *KeyStructure, kdf kdf.HKDF) *Key {
 	return NewKey(
 		kdf,
 		structure.Key,
@@ -32,8 +32,8 @@ func NewKeyFromStruct(structure KeyStructure, kdf kdf.HKDF) *Key {
 }
 
 // NewStructFromKey will return a chain key structure for serialization.
-func NewStructFromKey(key *Key) KeyStructure {
-	return KeyStructure{
+func NewStructFromKey(key *Key) *KeyStructure {
+	return &KeyStructure{
 		Key:   key.key,
 		Index: key.index,
 	}
