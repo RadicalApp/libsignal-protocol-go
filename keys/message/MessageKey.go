@@ -31,7 +31,7 @@ func NewKeys(cipherKey, macKey, iv []byte, index uint32) *Keys {
 
 // NewKeysFromStruct will return a new message keys object from the
 // given serializeable structure.
-func NewKeysFromStruct(structure KeysStructure) *Keys {
+func NewKeysFromStruct(structure *KeysStructure) *Keys {
 	return NewKeys(
 		structure.CipherKey,
 		structure.MacKey,
@@ -41,8 +41,8 @@ func NewKeysFromStruct(structure KeysStructure) *Keys {
 }
 
 // NewStructFromKeys returns a serializeable structure of message keys.
-func NewStructFromKeys(keys *Keys) KeysStructure {
-	return KeysStructure{
+func NewStructFromKeys(keys *Keys) *KeysStructure {
+	return &KeysStructure{
 		CipherKey: keys.cipherKey,
 		MacKey:    keys.macKey,
 		IV:        keys.iv,

@@ -71,7 +71,7 @@ type ChainStructure struct {
 	SenderRatchetKeyPublic  []byte
 	SenderRatchetKeyPrivate []byte
 	ChainKey                *chain.KeyStructure
-	MessageKeys             []message.KeysStructure
+	MessageKeys             []*message.KeysStructure
 }
 
 // Chain is a structure used inside the SessionState that keeps
@@ -136,7 +136,7 @@ func (c *Chain) structure() *ChainStructure {
 	getSlice := bytehelper.ArrayToSlice
 
 	// Convert our message keys into a serializeable structure.
-	messageKeys := make([]message.KeysStructure, len(c.messageKeys))
+	messageKeys := make([]*message.KeysStructure, len(c.messageKeys))
 	for i := range c.messageKeys {
 		messageKeys[i] = message.NewStructFromKeys(c.messageKeys[i])
 	}
